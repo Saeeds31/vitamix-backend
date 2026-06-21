@@ -1,0 +1,11 @@
+{
+    "name": "English",
+    "alias": "english",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\English\\Providers\\EnglishServiceProvider"
+    ],
+    "files": []
+}
