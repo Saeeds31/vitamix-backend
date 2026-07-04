@@ -65,7 +65,7 @@ class RunController extends Controller
             'shipping'   => 'حمل و نقل',
             'Slider'   => 'اسلایدر',
             'specifications'   => 'مشخصات',
-            'Role'   => 'نقش',
+            'Role'   => 'نقش', 
             'Wishlist'   => 'نقش',
             'User'   => 'کاربران',
             'Wallet'   => 'کیف پول',

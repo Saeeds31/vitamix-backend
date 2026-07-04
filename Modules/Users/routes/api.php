@@ -9,6 +9,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1/admin')->group(function () {
     Route::apiResource('users', UsersController::class)->names('users');
     Route::apiResource('roles', RolesController::class)->names('roles');
     Route::get('/user-managers', [UsersController::class, 'managerIndex'])->name("managerIndex");
+    Route::get('/admin-info', [UsersController::class, 'adminInfo'])->name("adminInfo");
     Route::post('/user-managers/assign-roles', [RolesController::class, 'assignRoles'])->name("assignRoles");
     Route::get('/all-permissions', [RolesController::class, 'allPermissions'])->name("allPermissions");
     Route::post('/save-permissions', [RolesController::class, 'savePermissions'])->name("savePermissions");
