@@ -73,7 +73,8 @@ class RolesController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            "name" => "required|string"
+            "name" => "required|string",
+            "slug" => "required|string"
         ]);
         $role = Role::create($data);
         return response()->json([
@@ -98,7 +99,9 @@ class RolesController extends Controller
     {
         $role = Role::findOrFail($id);
         $data = $request->validate([
-            "name" => "required|string"
+            "name" => "required|string",
+            "slug" => "required|string"
+
         ]);
         if ($role->is_system) {
             return response()->json(['error' => 'System roles cannot be updated'], 403);
