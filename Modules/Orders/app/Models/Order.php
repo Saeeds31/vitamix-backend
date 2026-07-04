@@ -5,6 +5,7 @@ namespace Modules\Orders\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Modules\Addresses\Models\Address;
+use Modules\Coupons\Models\Coupon;
 use Modules\Users\Models\User;
 use Carbon\Carbon;
 use Modules\Gateway\Models\GatewayTransaction;
@@ -16,6 +17,7 @@ class Order extends Model
     use HasFactory;
     protected $fillable = [
         'user_id',
+        'coupon_id',
         'address_id',
         'shipping_method_id',
         'subtotal',
@@ -45,7 +47,10 @@ class Order extends Model
     {
         return $this->belongsTo(Address::class);
     }
-
+    public function coupon()
+    {
+        return $this->belongsTo(Coupon::class);
+    }
     public function shippingMethod()
     {
         return $this->belongsTo(\Modules\Shipping\Models\ShippingMethod::class);
