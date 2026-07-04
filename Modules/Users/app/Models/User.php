@@ -34,7 +34,17 @@ class User extends Authenticatable
     protected $casts = [
         'birth_date' => 'date',
     ];
+    public function getDisplayName($addressReceiverName = null): string
+    {
+        if (!empty($this->full_name)) {
+            return $this->full_name;
+        }
 
+        if (!empty($addressReceiverName)) {
+            return $addressReceiverName;
+        }
+        return 'کاربر';
+    }
     /**
      * Get all addresses for the user.
      */

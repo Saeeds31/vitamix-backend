@@ -4,6 +4,7 @@ namespace Modules\Wallet\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Modules\Gateway\Models\GatewayTransaction;
 use Modules\Users\Models\User;
 
 // use Modules\Wallet\Database\Factories\WalletFactory;
@@ -28,4 +29,14 @@ use Modules\Users\Models\User;
         {
             return $this->hasMany(WalletTransaction::class);
         }
+        public function gatewayTransactions()
+    {
+        return $this->morphMany(
+
+            GatewayTransaction::class,
+
+            'payable'
+
+        );
+    }
     }

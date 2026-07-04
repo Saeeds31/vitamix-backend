@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Modules\Addresses\Models\Address;
 use Modules\Users\Models\User;
 use Carbon\Carbon;
+use Modules\Gateway\Models\GatewayTransaction;
 
 // use Modules\Orders\Database\Factories\OrderFactory;
 
@@ -61,9 +62,19 @@ class Order extends Model
             'total_orders'   => self::count(),
             'total_sales'    => self::sum('total'),
             'total_discount' => self::sum('discount_amount'),
-            
+
             'today_orders'   => self::whereDate('created_at', Carbon::today())->count(),
             'month_orders'   => self::whereMonth('created_at', Carbon::now()->month)->count(),
         ];
+    }
+    public function gatewayTransactions()
+    {
+        return $this->morphMany(
+
+            GatewayTransaction::class,
+
+            'payable'
+
+        );
     }
 }

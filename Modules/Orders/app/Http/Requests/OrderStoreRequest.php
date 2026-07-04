@@ -21,7 +21,7 @@ class OrderStoreRequest extends FormRequest
             'total'             => ['required', 'integer', 'min:0'],
             'payment_method'    => ['nullable', 'string', 'max:50'],
             'payment_status'    => ['nullable', 'string', 'max:50'],
-            'status'            => ['nullable', 'string', 'in:pending,processing,shipped,completed,canceled'],
+            'status'            => ['nullable', 'string', 'in:pending,paid,shipped,completed,canceled'],
         ];
     }
 

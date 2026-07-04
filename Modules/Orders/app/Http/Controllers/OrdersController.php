@@ -3,6 +3,7 @@
 namespace Modules\Orders\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\SmsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,8 @@ use Modules\Notifications\Services\NotificationService;
 use Modules\Orders\Http\Requests\OrderStoreRequest;
 use Modules\Orders\Http\Requests\OrderUpdateRequest;
 use Modules\Orders\Models\Order;
+use Modules\Payment\Services\PaymentCompletionService;
+use Modules\Payment\Services\PaymentService;
 use Modules\Products\Models\ProductVariant;
 use Modules\Shipping\Models\ShippingMethod;
 use Modules\Shipping\Services\ShippingService;
@@ -23,14 +26,19 @@ use Modules\Users\Models\User;
 
 class OrdersController extends Controller
 {
-
-
+    public function __construct(
+        protected PaymentService $paymentService,
+        protected WalletService $walletService,
+        protected PaymentCompletionService $paymentCompletionService,
+        protected NotificationService $notifications,
+        protected SmsService $smsService,
+    ) {}
     /**
      * لیست سفارش‌ها
      */
     public function index(Request $request)
     {
-        $orders = Order::with(['user', 'address', 'shippingMethod'])->paginate(20);
+        $orders = Order::with(['user', 'address', 'ShippingMethod'])->latest()->paginate(20);
         // اگر کوئری جستجو اومد روی نام کاربر یا شماره موبایل اعمال کن
         if ($search = $request->get('q')) {
             $orders->whereHas('user', function ($q) use ($search) {
@@ -49,7 +57,7 @@ class OrdersController extends Controller
     /**
      * ایجاد سفارش جدید
      */
-    public function store(OrderStoreRequest $request, NotificationService $notifications)
+    public function store(OrderStoreRequest $request)
     {
         $data = $request->validate([
             'user_id'            => 'required|exists:users,id',
@@ -65,13 +73,13 @@ class OrdersController extends Controller
         ]);
 
         $order = Order::create($data);
-        $notifications->create(
+        $this->notifications->create(
             "ثبت سفارش",
             " یک سفارش در سیستم ثبت  شد",
             "notification_order",
             ['order' => $order->id]
         );
-        return response()->json($order->load(['user', 'address', 'shippingMethod']), 201);
+        return response()->json($order->load(['user', 'address', 'ShippingMethod']), 201);
     }
 
     /**
@@ -83,7 +91,7 @@ class OrdersController extends Controller
             [
                 'message' => 'جزئیات سفارش',
                 'success' => true,
-                'data' => $order->load(['user', 'address.province', 'address.city', 'shippingMethod', 'items.product', 'items.variant.values'])
+                'data' => $order->load(['user', 'address.province', 'address.city', 'ShippingMethod', 'items.product', 'items.variant.values'])
             ]
         );
     }
@@ -91,7 +99,7 @@ class OrdersController extends Controller
     /**
      * بروزرسانی سفارش
      */
-    public function update(OrderUpdateRequest $request, Order $order, NotificationService $notifications)
+    public function update(OrderUpdateRequest $request, Order $order)
     {
         $data = $request->validate([
             'user_id'            => 'sometimes|exists:users,id',
@@ -107,13 +115,13 @@ class OrdersController extends Controller
         ]);
 
         $order->update($data);
-        $notifications->create(
+        $this->notifications->create(
             "ویرایش سفارش",
             " یک سفارش در سیستم ویرایش  شد",
             "notification_order",
             ['order' => $order->id]
         );
-        return response()->json($order->load(['user', 'address', 'shippingMethod', 'items']));
+        return response()->json($order->load(['user', 'address', 'ShippingMethod', 'items']));
     }
 
     /**
@@ -126,7 +134,7 @@ class OrdersController extends Controller
     }
 
 
-    public function storeInAdmin(Request $request, NotificationService $notifications)
+    public function storeInAdmin(Request $request)
     {
         // پرداخت در پنل ادمین فقط با کیف پول هست
         $data = $request->validate([
@@ -144,7 +152,7 @@ class OrdersController extends Controller
             'items.*.price'      => 'required|numeric|min:0',
         ]);
 
-        return DB::transaction(function () use ($data, $notifications) {
+        return DB::transaction(function () use ($data) {
             $user = User::with(['wallet'])->findOrFail($data['user_id']);
             // 1. چک موجودی کیف پول
             if ($user->wallet->balance < $data['total']) {
@@ -170,7 +178,7 @@ class OrdersController extends Controller
                 'total'              => $data['total'],
                 'payment_method'     => "wallet",
                 'payment_status'     => "paid",
-                'status'             => "processing",
+                'status'             => "paid",
             ]);
 
             // 4. ثبت آیتم‌ها + کم کردن موجودی
@@ -196,19 +204,19 @@ class OrdersController extends Controller
                 'amount' => $data['total'],
                 'description' => "پرداخت برای سفارش #{$order->id}",
             ]);
-            $notifications->create(
+            $this->notifications->create(
                 "ثبت سفارش",
                 "یک سفارش در پنل ادمین ثبت شد",
                 "notification_order",
                 ['order' => $order->id]
             );
-            return response()->json($order->load(['items', 'user', 'address', 'shippingMethod']), 201);
+            return response()->json($order->load(['items', 'user', 'address', 'ShippingMethod']), 201);
         });
     }
-    public function changeStatus(Request $request, Order $order, NotificationService $notifications)
+    public function changeStatus(Request $request, Order $order)
     {
         $data = $request->validate([
-            'status'         => 'required|in:pending,processing,shipped,completed,canceled,returned,reserved',
+            'status'         => 'required|in:pending,paid,shipped,completed,canceled,returned,reserved,failed',
         ]);
 
         // بررسی تغییر وضعیت به مواردی که نیاز به عملیات خاص دارن
@@ -216,7 +224,7 @@ class OrdersController extends Controller
             // مثال: اگر سفارش لغو شد،و از قبل پرداختی داشت موجودی کیف پول یا محصولات برگشت داده شود
             if ($order->status == 'processing' && $data['status'] === 'canceled') {
                 // برگشت مبلغ به کیف پول
-                if ($order->payment_status === 'paid') {
+                if ($order->status == 'paid' && $data['status'] === 'canceled') {
                     $order->user->wallet()->increment('balance', $order->total);
                     $order->user->wallet->transactions()->create([
                         'type' => 'credit',
@@ -242,7 +250,8 @@ class OrdersController extends Controller
 
 
         $order->save();
-        $notifications->create(
+        $this->smsService->sendToKavenegar('change-order-status', $order->user->mobile, $order->id, ['token20' => $order->user->getDisplayName($order->address->receiver_name), 'token2' => $order->status_label]);
+        $this->notifications->create(
             "تغییر وضعیت",
             " یک سفارش رد سیستم تغییر وضعیت پیدا کرد",
             "notification_order",
@@ -250,14 +259,14 @@ class OrdersController extends Controller
         );
         return response()->json([
             'message' => 'وضعیت سفارش با موفقیت تغییر کرد',
-            'order'   => $order->load(['items', 'user', 'address', 'shippingMethod'])
+            'order'   => $order->load(['items', 'user', 'address', 'ShippingMethod'])
         ]);
     }
     public function todaysOrders()
     {
         $today = Carbon::today();
-        $orders = Order::with(['items', 'user', 'address', 'shippingMethod'])
-            ->whereDate('created_at', $today)->where('status', "processing")
+        $orders = Order::with(['items', 'user', 'address', 'ShippingMethod'])
+            ->whereDate('created_at', $today)->where('status', "paid")
             ->get();
 
         return response()->json([
@@ -266,14 +275,16 @@ class OrdersController extends Controller
             'data'    => $orders
         ]);
     }
-    public function checkout(Request $request, NotificationService $notifications)
-    {
+    public function checkout(
+        Request $request,
+    ) {
         $user = $request->user();
 
         // 1. اعتبارسنجی اولیه درخواست
         $request->validate([
             'address_id'        => 'required|exists:addresses,id',
             'shipping_method_id' => 'required|exists:shipping_methods,id',
+            'gateway' => 'required_if:payment_method,online|string',
             'payment_method'    => 'required|in:wallet,online',
             'coupon_code'       => 'nullable|string',
         ]);
@@ -293,7 +304,7 @@ class OrdersController extends Controller
         }
 
         // 4. جمع زدن subtotal
-        $subtotal = $cartItems->sum(fn($item) => $item->price * $item->quantity);
+        $subtotal = $cartItems->sum(fn($item) => $item->price_final * $item->quantity);
 
         // 5. بررسی و محاسبه تخفیف با CouponService
         $discountAmount = 0;
@@ -346,7 +357,7 @@ class OrdersController extends Controller
 
         // 10. ایجاد سفارش و تراکنش‌ها
         return DB::transaction(function () use (
-            $notifications,
+
             $user,
             $cartItems,
             $subtotal,
@@ -363,14 +374,14 @@ class OrdersController extends Controller
             $order = Order::create([
                 'user_id' => $user->id,
                 'address_id' => $address->id,
-                'shipping_method_id' => $shippingMethod->id,
+                'shipping_id' => $shippingMethod->id,
                 'subtotal' => $subtotal,
                 'discount_amount' => $discountAmount,
                 'shipping_cost' => $shippingCost,
                 'total' => $total,
                 'payment_method' => $request->payment_method,
                 'payment_status' => $toPayOnline > 0 ? 'pending' : 'paid',
-                'status' => 'pending',
+                'status' => $toPayOnline > 0 ? 'pending' :  'paid',
             ]);
 
             // 11. ثبت آیتم‌ها و کم کردن موجودی
@@ -394,12 +405,12 @@ class OrdersController extends Controller
 
             // 13. پرداخت از کیف پول
             if ($fromWallet > 0) {
-                $user->wallet()->update(['balance' => $user->wallet->balance - $fromWallet]);
-                $user->wallet->transactions()->create([
-                    'type' => 'debit',
-                    'amount' => $fromWallet,
-                    'description' => "پرداخت برای سفارش #{$order->id}",
-                ]);
+                $this->walletService->withdraw(
+                    wallet: $user->wallet,
+                    amount: $fromWallet,
+                    description: "پرداخت سفارش #{$order->id}",
+                    order: $order,
+                );
             }
 
             // 14. پاک کردن سبد خرید
@@ -407,13 +418,22 @@ class OrdersController extends Controller
 
             // 15. اگر پرداخت آنلاین نیاز است → درگاه فیک
             if ($toPayOnline > 0) {
-                $transaction = GatewayTransaction::create([
-                    'order_id' => $order->id,
-                    'user_id' => $user->id,
-                    'amount' => $toPayOnline,
-                    'status' => 'pending',
-                ]);
-                $notifications->create(
+
+                $gateway = $request->gateway ?? config('payment.default');
+
+                $gatewayUrl = $this->paymentService->pay(
+
+                    payable: $order,
+
+                    user: $user,
+
+                    amount: $toPayOnline,
+
+                    gateway: $gateway,
+
+                );
+
+                $this->notifications->create(
                     "سفارش در انتظار پرداخت",
                     " یک سفارش برای پرداخت به درگاه منتقل شد",
                     "notification_order",
@@ -421,18 +441,18 @@ class OrdersController extends Controller
                 );
                 return response()->json([
                     'order' => $order->load('items'),
-                    'gateway_url' => route('fake.gateway.show', $transaction->id)
+                    'status' => 'gateway',
+                    'gateway_url' => $gatewayUrl,
                 ], 201);
             }
-            $notifications->create(
-                "سفارش کامل شده",
-                " یک سفارش از کیف پول به صورت کامل پرداخت شد",
-                "notification_order",
-                ['order' => $order->id]
+            $this->paymentCompletionService->completeWalletOrder(
+                $order
             );
+
             return response()->json([
                 'order' => $order->load('items'),
-                'message' => 'سفارش با موفقیت ثبت شد و از کیف پول پرداخت شد'
+                'status' => 'wallet',
+                'message' => 'سفارش با موفقیت ثبت شد.',
             ], 201);
         });
     }

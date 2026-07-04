@@ -47,6 +47,7 @@
             "Modules\\Dashboard\\": "Modules/Dashboard/app/",
             "Modules\\Categories\\": "Modules/Categories/app/",
             "Modules\\Attributes\\": "Modules/Attributes/app/",
+            "Modules\\Payment\\": "Modules/Payment/app/",
             "Modules\\Articles\\": "Modules/Articles/app/",
             "Modules\\Front\\": "Modules/Front/app/",
             "Modules\\ArticleCategories\\": "Modules/ArticleCategories/app/",

@@ -15,11 +15,14 @@ class GatewayTransaction extends Model
     protected $table = 'gateway_transactions';
 
     protected $fillable = [
-        'order_id',
-        'wallet_id',
         'user_id',
         'gateway',
         'authority',
+        'payable_id',
+        'payable_type',
+        'request_data',
+        'verify_data',
+        'paid_at',
         'ref_id',
         'amount',
         'status',
@@ -49,5 +52,9 @@ class GatewayTransaction extends Model
     public function wallet()
     {
         return $this->belongsTo(Wallet::class);
+    }
+    public function payable()
+    {
+        return $this->morphTo();
     }
 }
