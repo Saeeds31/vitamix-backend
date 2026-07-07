@@ -674,10 +674,12 @@ class OrdersController extends Controller
 
         // پیدا کردن سفارش با تمام روابط
         $order = Order::with([
-            'items',
-            'address',
-            'shippingMethod',
             'user',
+            'address.province',
+            'address.city',
+            'ShippingMethod',
+            'items.product',
+            'items.variant.values'
         ])->where('id', $orderId)
             ->where('user_id', $user->id) // فقط سفارش‌های خودش
             ->first();
