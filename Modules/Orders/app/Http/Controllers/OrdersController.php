@@ -23,6 +23,7 @@ use Modules\Products\Models\ProductVariant;
 use Modules\Shipping\Models\ShippingMethod;
 use Modules\Shipping\Services\ShippingService;
 use Modules\Users\Models\User;
+use Modules\Wallet\Services\WalletService;
 
 class OrdersController extends Controller
 {
@@ -374,7 +375,7 @@ class OrdersController extends Controller
             $order = Order::create([
                 'user_id' => $user->id,
                 'address_id' => $address->id,
-                'shipping_id' => $shippingMethod->id,
+                'shipping_method_id' => $shippingMethod->id,
                 'subtotal' => $subtotal,
                 'discount_amount' => $discountAmount,
                 'shipping_cost' => $shippingCost,
