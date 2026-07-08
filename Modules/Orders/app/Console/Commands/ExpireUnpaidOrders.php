@@ -8,6 +8,7 @@ use Modules\Coupons\Services\CouponService;
 use Modules\Gateway\Models\GatewayTransaction;
 use Modules\Notifications\Services\NotificationService;
 use Modules\Orders\Models\Order;
+use Modules\Wallet\Services\WalletService;
 
 class ExpireUnpaidOrders extends Command
 {
