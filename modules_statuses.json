@@ -28,5 +28,6 @@
     "Gateway": true,
     "Notifications": true,
     "English": true,
-    "Payment": true
+    "Payment": true,
+    "Major": true
 }

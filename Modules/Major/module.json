@@ -1,0 +1,11 @@
+{
+    "name": "Major",
+    "alias": "major",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Major\\Providers\\MajorServiceProvider"
+    ],
+    "files": []
+}
